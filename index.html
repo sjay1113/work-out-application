@@ -1183,7 +1183,7 @@ const Hist={
   kind:'local',col:null,sb:null,user:null,sbFailed:false,cloud:false,connecting:false,cloudDocs:[],
   pending(){const l=store.get('ptnote-history',[]);return Array.isArray(l)?l:[]},
   setPending(l){store.set('ptnote-history',l)},
-  label(){return this.cloud?'내 계정에 저장돼요':this.connecting?'저장 공간 연결 중':'이 휴대폰에 저장돼요'},
+  label(){return this.cloud?(this.kind==='supa'?'서버에 저장돼요':'내 계정에 저장돼요'):this.connecting?'저장 공간 연결 중':'이 휴대폰에 저장돼요'},
   merge(){const ids=new Set(this.cloudDocs.map(x=>x.id));U=[...this.cloudDocs,...this.pending().filter(x=>!ids.has(x.id))]},
   async init(){
     if(window.claude&&typeof window.claude.use==='function')return this.initClaude();
@@ -1212,7 +1212,12 @@ const Hist={
     try{if(!window.supabase)await loadScript(SUPA.js)}catch(e){this.sbFailed=true;refresh();return}
     try{this.sb=window.supabase.createClient(SUPA.url,SUPA.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}})}catch(e){this.sbFailed=true;refresh();return}
     this.sb.auth.onAuthStateChange((ev,session)=>{setTimeout(()=>this.onSession(session),0)});
-    try{const {data}=await this.sb.auth.getSession();this.onSession(data&&data.session)}catch(e){this.onSession(null)}
+    /* 로그인 화면 없이: 처음 열 때 이 휴대폰 전용 익명 계정을 자동으로 만들어요 (Supabase에서 익명 로그인을 켜 둬야 해요) */
+    try{
+      const {data}=await this.sb.auth.getSession();let s=data&&data.session;
+      if(!s){const r=await this.sb.auth.signInAnonymously();if(r&&r.error)this.anonOff=true;else s=r&&r.data&&r.data.session}
+      this.onSession(s);
+    }catch(e){this.onSession(null)}
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&this.user)this.pull()});
   },
   async onSession(session){
@@ -1279,6 +1284,7 @@ function authMsg(e){
   return'로그인하지 못했어요. 인터넷 연결을 확인하고 다시 해 주세요.';
 }
 function acctCard(){
+  return''; /* 여자친구 혼자 쓰니 로그인 화면은 숨겨요 (익명 자동 로그인) */
   if(Hist.kind!=='supa')return'';
   if(Hist.sbFailed)return`<div class="card acct"><div><strong>계정 저장 서버에 연결하지 못했어요</strong><span>기록은 이 휴대폰에 저장되고, 다음에 열 때 다시 연결해요.</span></div></div>`;
   if(Hist.user)return`<div class="card acct"><div><strong>${esc(Hist.user.email||'로그인됨')}</strong><span>${Hist.cloud?'로그인됨 · 기록이 계정에 저장돼요':'계정에 연결하는 중이에요'}</span></div><button class="btn-light sm" data-auth="out">로그아웃</button></div>`;

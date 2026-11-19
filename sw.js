@@ -1,6 +1,6 @@
 // 헬스장 와이파이가 약해도 열리도록 한 번 연 화면 파일과 글꼴을 저장해 둡니다.
 // 로그인·운동 기록 같은 계정 데이터(Supabase)는 저장하지 않고 항상 서버에서 받아요.
-const CACHE = 'pt-note-v9';
+const CACHE = 'pt-note-v10';
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 const CACHEABLE = /^(fonts\.googleapis\.com|fonts\.gstatic\.com|cdn\.jsdelivr\.net)$/;
 self.addEventListener('install', e => {
