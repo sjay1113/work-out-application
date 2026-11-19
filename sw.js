@@ -1,7 +1,7 @@
 // PT 운동 노트 — 오프라인 저장 + 업데이트 알림
 // 새 버전을 올릴 때마다 CACHE 숫자와 version.json 의 notes 를 바꿔 주세요.
 // 새 버전은 미리 받아 두기만 하고, 앱에서 "업데이트"를 눌러야 적용돼요.
-const CACHE = 'pt-note-v12';
+const CACHE = 'pt-note-v13';
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 // 계정 데이터(Supabase)는 저장하지 않아요. 글꼴과 라이브러리만 함께 보관해요.
 const CACHEABLE = /^(fonts\.googleapis\.com|fonts\.gstatic\.com|cdn\.jsdelivr\.net)$/;

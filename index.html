@@ -336,6 +336,16 @@ main .col{padding-block:20px 112px;display:flex;flex-direction:column;gap:22px}
 .bd-cta{position:fixed;left:0;right:0;bottom:0;z-index:31;padding-top:10px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line)}
 .btn-dark:disabled{opacity:.45}
 
+/* rest switch & cancel */
+.wo-opts{display:flex;justify-content:flex-end}
+.tgl{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink-2);background:var(--surface-2);border-radius:99px;padding:6px 12px 6px 6px}
+.tgl-k{width:34px;height:20px;border-radius:99px;background:var(--surface-3);position:relative;flex:none;transition:background .15s}
+.tgl-k::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgb(0 0 0 / .25);transition:transform .15s}
+.tgl[aria-pressed="true"] .tgl-k{background:var(--ok)}
+.tgl[aria-pressed="true"] .tgl-k::after{transform:translateX(14px)}
+.btn-text{background:none;color:var(--muted);font-weight:600;font-size:14.5px;padding:10px;text-decoration:underline;text-underline-offset:3px}
+.btn-danger{background:transparent;border:1.5px solid var(--red);color:var(--red);border-radius:14px;padding:13px;font-weight:700;font-size:15px;width:100%}
+
 /* account */
 .acct{display:flex;align-items:center;gap:12px;padding:14px 16px}
 .acct>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
@@ -876,7 +886,7 @@ function renderHome(){
     <h2>${esc(ws.title)}</h2>
     <div class="stats3"><div><b>${ws.items.length}</b><span>종목</span></div><div><b>${d}/${tt}</b><span>세트 완료</span></div><div><b>${Math.round((tt-d)*2.5)}</b><span>분 남음</span></div></div>
     <ol class="hero-list">${ws.items.map((it,i)=>`<li><span class="hn">${i+1}</span><span class="hx">${esc(it.n)}</span><span class="hv">${it.sets.filter(s=>s.done).length}/${it.sets.length}</span></li>`).join('')}</ol>
-    <div class="hero-act"><button class="btn-primary" data-act="resume">${play}이어서 하기</button><button class="btn-ghost" data-act="build">루틴 바꾸기</button></div></section>`;
+    <div class="hero-act"><button class="btn-primary" data-act="resume">${play}이어서 하기</button><button class="btn-ghost" data-act="cancelask">운동 취소</button></div></section>`;
   }else{
     const s=curSess(),list=sessionsOf(s.p),isLatest=list[0].id===s.id,nSets=setsOf(s);heroPart=s.p;
     const doneNote=ws&&ws.finished?`<div class="done-note">${icoCheck}<span>오늘 운동 완료 · ${fmtLong(ws.end-ws.start)} · ${doneN(ws)}세트</span></div>`:'';
@@ -1069,6 +1079,7 @@ function startCustom(){
 /* ---------- 운동 화면 ---------- */
 const wo=document.getElementById('wo'),woList=document.getElementById('woList');
 let woTick=null;
+let restAuto=!!store.get('ptnote-rest-auto',false); /* 휴식 타이머: 기본은 꺼짐 */
 const doneN=w=>w?w.items.reduce((a,it)=>a+it.sets.filter(s=>s.done).length,0):0;
 const totalN=w=>w?w.items.reduce((a,it)=>a+it.sets.length,0):0;
 const inProgress=()=>ws&&!ws.finished;
@@ -1095,7 +1106,8 @@ function renderWorkout(){
   document.getElementById('woTitle').textContent=ws.title;
   wo.setAttribute('style',pc(ws.part));
   const mini=s=>s.replace('width="18" height="18"','width="14" height="14"');
-  woList.innerHTML=ws.items.map((it,ei)=>{
+  const restRow=`<div class="wo-opts"><button class="tgl" data-resttgl aria-pressed="${restAuto}"><span class="tgl-k" aria-hidden="true"></span>체크하면 휴식 타이머 시작 · ${restAuto?'켜짐':'꺼짐'}</button></div>`;
+  woList.innerHTML=restRow+ws.items.map((it,ei)=>{
     const m=memoFor(it.n),pv1=prevFor({n:it.n},1);
     const rows=it.sets.map((st,si)=>{const pv=prevFor({n:it.n},si+1);
       return `<div class="st${st.done?' done':''}"><span class="sn">${it.warm?'W':si+1}</span><span class="pv">${pv?esc(pv.t):'—'}</span>
@@ -1108,7 +1120,7 @@ function renderWorkout(){
       ${m?`<button class="memo-line" data-ex="${esc(it.n)}"><b>쌤</b><span>${esc(m.e.t)}</span></button>`:''}
       <div class="stbl"><div class="st hd"><span>세트</span><span>지난번${pv1?` (${pv1.d}${pv1.mine?' 혼자':''})`:''}</span><span>무게</span><span>회</span><span>완료</span></div>${rows}</div>
       <div class="set-act"><button data-wset="${ei}" data-d="1">＋ 세트 추가</button><button data-wset="${ei}" data-d="-1" ${it.sets.length<=1?'disabled':''}>− 세트 빼기</button></div>
-    </article>`}).join('')+`<button class="btn-light" data-wadd>＋ 운동 추가</button><button class="btn-dark" data-act="finish">운동 완료하기</button>`;
+    </article>`}).join('')+`<button class="btn-light" data-wadd>＋ 운동 추가</button><button class="btn-dark" data-act="finish">운동 완료하기</button><button class="btn-text" data-act="cancelask">운동 취소</button>`;
   updProgress();
 }
 function updProgress(){
@@ -1129,6 +1141,16 @@ function exPicker(mode,ei,part){
   ${mode==='swap'&&ws.items.length>1?`<button class="btn-light" data-wdel="${ei}">이 운동 빼기</button>`:''}`;
   openSheet(mode==='swap'?'어떤 운동으로 바꿀까요?':'어떤 운동을 추가할까요?',html,xp.part);
 }
+function cancelSheet(){
+  const d=doneN(ws);
+  const html=`<p class="msg" style="font-size:15px">${esc(ws.title)} · ${d}/${totalN(ws)}세트 했어요</p>
+  ${d?`<button class="btn-dark" data-act="endpartial">지금까지 한 ${d}세트만 저장하고 끝내기</button>`:''}
+  <button class="btn-danger" data-act="cancelgo">${d?'저장하지 않고 취소':'운동 취소'}</button>
+  <button class="btn-light" data-close>돌아가기</button>
+  <p class="msg">취소하면 이번 운동은 기록에 남지 않아요. 지난 기록은 그대로예요.</p>`;
+  openSheet('운동을 취소할까요?',html,ws.part);
+}
+function cancelWorkout(){ws=null;store.set('ptnote3-ws',null);closeSheet();if(!wo.hidden)closeWorkout();else render();toast('운동을 취소했어요')}
 function finishSheet(){
   let done=0,total=0,vol=0;
   const per=ws.items.map(it=>{const d=it.sets.filter(s=>s.done);d.forEach(s=>{vol+=(kg(s.w)||0)*repN(s.r)});done+=d.length;total+=it.sets.length;return{n:it.n,d:d.length,t:it.sets.length}});
@@ -1355,6 +1377,10 @@ document.addEventListener('click',e=>{
   if(d.act==='resume'){openWorkout();return}
   if(d.act==='build'){openBuild();return}
   if(d.act==='finish'){finishSheet();return}
+  if(d.act==='cancelask'){if(ws)cancelSheet();return}
+  if(d.act==='cancelgo'){cancelWorkout();return}
+  if(d.act==='endpartial'){ws.finished=true;ws.end=Date.now();saveWs();closeSheet();if(!wo.hidden)closeWorkout();else render();saveWorkout();return}
+  if(b.hasAttribute('data-resttgl')){restAuto=!restAuto;store.set('ptnote-rest-auto',restAuto);if(!restAuto)stopRest();b.setAttribute('aria-pressed',restAuto);b.lastChild.textContent=`체크하면 휴식 타이머 시작 · ${restAuto?'켜짐':'꺼짐'}`;toast(restAuto?'세트를 체크하면 휴식 타이머가 시작돼요':'휴식 타이머를 껐어요');return}
   if(d.act==='end'){ws.finished=true;ws.end=Date.now();saveWs();closeSheet();closeWorkout();saveWorkout();return}
   if(d.del){if(b.dataset.armed!=='1'){b.dataset.armed='1';b.textContent='한 번 더 누르면 지워져요';setTimeout(()=>{if(b.isConnected){b.dataset.armed='';b.textContent='이 기록 지우기'}},3000);return}
     closeSheet();Hist.del(d.del).then(ok=>toast(ok?'기록을 지웠어요':'지우지 못했어요. 잠시 뒤 다시 해 주세요'));return}
@@ -1367,7 +1393,7 @@ document.addEventListener('click',e=>{
   if(d.bunsel){bd.sel=bd.sel.filter(x=>x!==d.bunsel);renderBuild();return}
   if(d.stp){const c=cfgOf(d.n),dir=+d.d;if(d.stp==='sets')c.sets=Math.min(8,Math.max(1,c.sets+dir));else if(d.stp==='r')c.r=Math.min(50,Math.max(1,(+c.r||0)+dir));else c.w=stepKg(c.w,dir);renderBuild();return}
   /* 운동 중 바꾸기 */
-  if(b.classList.contains('chk')){const st=ws.items[+d.ei].sets[+d.si];st.done=!st.done;saveWs();b.setAttribute('aria-pressed',st.done);b.closest('.st').classList.toggle('done',st.done);updProgress();if(st.done&&!ws.finished)startRest(90);return}
+  if(b.classList.contains('chk')){const st=ws.items[+d.ei].sets[+d.si];st.done=!st.done;saveWs();b.setAttribute('aria-pressed',st.done);b.closest('.st').classList.toggle('done',st.done);updProgress();if(st.done&&!ws.finished&&restAuto)startRest(90);return}
   if(d.wset!==undefined){const it=ws.items[+d.wset];if(+d.d>0){const l=it.sets[it.sets.length-1]||{w:'',r:'12'};it.sets.push({w:l.w,r:l.r,done:false})}else if(it.sets.length>1)it.sets.pop();saveWs();renderWorkout();return}
   if(d.wswap!==undefined){exPicker('swap',+d.wswap);return}
   if(b.hasAttribute('data-wadd')){exPicker('add',-1);return}
