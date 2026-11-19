@@ -356,6 +356,18 @@ main .col{padding-block:20px 112px;display:flex;flex-direction:column;gap:22px}
 .erow .icon-x{width:36px;height:36px}
 select.field{appearance:auto}
 
+/* 3D animation */
+.illu.anim{background:#1f2327;border-color:var(--line)}
+.anim-img{display:block;width:100%;height:auto;aspect-ratio:4/3;background:#1f2327}
+.illu.anim .mus{display:flex;flex-direction:column;gap:3px;padding:8px 12px 0;font-size:12.5px;color:#a9b6bd}
+.illu.anim .mus div{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.illu.anim .mus b{color:#eef3f5;font-weight:600;margin-right:6px}
+.mk{width:10px;height:10px;border-radius:3px;display:inline-block}
+.mk.hot{background:#1fd7b6}.mk.warm{background:#93e7d8}
+.illu.anim figcaption{border-top:0;color:#a9b6bd}
+.illu.anim .orig{background:#2b3136;border-color:#3a4248;color:#eef3f5}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+
 /* account */
 .acct{display:flex;align-items:center;gap:12px;padding:14px 16px}
 .acct>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
@@ -563,141 +575,31 @@ const DRAW={
  '업라이트 로우':[{d:'10/1',f:'1001-upright'}],
  'V-런지':[{d:'10/26',f:'1026-vlunge'}]
 };
-/* 쌤 그림을 보기 쉽게 다시 그린 움직이는 그림 (SVG 애니메이션) — 캐릭터 스타일 */
-const f1=v=>Math.round(v*10)/10;
-const ln=(a,b,c,d,k='fig')=>`<line x1="${a}" y1="${b}" x2="${c}" y2="${d}" class="${k}"/>`;
-const pl=(p,k='fig')=>`<polyline points="${p}" class="${k}"/>`;
-const tx=(x,y,s,k='',a='middle')=>`<text x="${x}" y="${y}" class="${k}" text-anchor="${a}">${s}</text>`;
-const gd=(a,b,c,d)=>ln(a,b,c,d,'guide');
-const head=(x2,y2,ang,k)=>{const l=9,w=5,bx=x2-l*Math.cos(ang),by=y2-l*Math.sin(ang),px=-Math.sin(ang)*w,py=Math.cos(ang)*w;return{bx,by,poly:`<polygon points="${f1(x2)},${f1(y2)} ${f1(bx+px)},${f1(by+py)} ${f1(bx-px)},${f1(by-py)}" class="${k.split(' ')[0]}h"/>`}};
-const ar=(x1,y1,x2,y2,k='arw')=>{const h=head(x2,y2,Math.atan2(y2-y1,x2-x1),k);return ln(x1,y1,f1(h.bx),f1(h.by),k)+h.poly};
-const aq=(x1,y1,cx,cy,x2,y2,k='arw')=>{const h=head(x2,y2,Math.atan2(y2-cy,x2-cx),k);return `<path d="M${x1} ${y1} Q${cx} ${cy} ${f1(h.bx)} ${f1(h.by)}" class="${k}"/>`+h.poly};
-const okm=(x,y)=>`<circle cx="${x}" cy="${y}" r="10" class="ok"/>`;
-const nom=(x,y)=>`<path d="M${x-8} ${y-8}L${x+8} ${y+8}M${x+8} ${y-8}L${x-8} ${y+8}" class="no"/>`;
-const db=(x,y)=>ln(x-8,y,x+8,y,'eq')+`<rect x="${x-12}" y="${y-7}" width="6" height="14" rx="2" class="eqd"/><rect x="${x+6}" y="${y-7}" width="6" height="14" rx="2" class="eqd"/>`;
-/* 움직임: 시작 자세 잠깐 → 힘주는 동작 → 끝 자세 잠깐 → 천천히 돌아오기 */
-const DUR='3.4s',KT='0;0.1;0.42;0.56;1',KS='0 0 1 1;.42 0 .58 1;0 0 1 1;.42 0 .58 1';
-const anim=(attr,a,b)=>`<animate attributeName="${attr}" values="${a};${a};${b};${b};${a}" keyTimes="${KT}" calcMode="spline" keySplines="${KS}" dur="${DUR}" repeatCount="indefinite"/>`;
-const aPL=(a,b,k='fig')=>`<polyline points="${a}" class="${k}">${anim('points',a,b)}</polyline>`;
-const aC=(ax,ay,bx,by,r,k)=>`<circle cx="${ax}" cy="${ay}" r="${r}" class="${k}">${anim('cx',ax,bx)}${anim('cy',ay,by)}</circle>`;
-const aLN=(a,b,k='fig')=>`<line x1="${a[0]}" y1="${a[1]}" x2="${a[2]}" y2="${a[3]}" class="${k}">${['x1','y1','x2','y2'].map((n,i)=>a[i]!==b[i]?anim(n,a[i],b[i]):'').join('')}</line>`;
-const aP=(a,b,k='fig')=>`<path d="${a}" class="${k}">${anim('d',a,b)}</path>`;
-const aG=(ax,ay,bx,by,inner)=>`<g transform="translate(${ax} ${ay})">${inner}<animateTransform attributeName="transform" type="translate" values="${ax} ${ay};${ax} ${ay};${bx} ${by};${bx} ${by};${ax} ${ay}" keyTimes="${KT}" calcMode="spline" keySplines="${KS}" dur="${DUR}" repeatCount="indefinite"/></g>`;
-const aRect=(a,b,k)=>`<rect x="${a[0]}" y="${a[1]}" width="${a[2]}" height="7" rx="3.5" class="${k}">${anim('x',a[0],b[0])}${anim('y',a[1],b[1])}${anim('width',a[2],b[2])}</rect>`;
-/* 캐릭터 몸: 외곽선 한 겹 + 색 한 겹 (role: torso · arm · leg · shoe, 'b' = 뒤쪽 팔다리) */
-const lp=(role,a,b)=>(b&&b!==a)?aPL(a,b,'ol '+role)+aPL(a,b,role):pl(a,'ol '+role)+pl(a,role);
-const lpP=(a,b)=>aP(a,b,'ol arm')+aP(a,b,'arm');
-const face=f=>`<circle r="11.5" cy="-1.5" class="hair"/>`+
-  (f==='f'?`<circle cy="-13" r="5.5" class="hair"/>`:`<ellipse cx="${f==='r'?-11:11}" cy="-3" rx="4.5" ry="7.5" transform="rotate(${f==='r'?-28:28} ${f==='r'?-11:11} -3)" class="hair"/>`)+
-  `<circle r="9.8" cx="${f==='r'?1.5:f==='l'?-1.5:0}" cy="1.6" class="face"/>`+
-  (f==='f'?`<circle cx="-3.4" cy="2" r="1.3" class="eye"/><circle cx="3.4" cy="2" r="1.3" class="eye"/>`:`<circle cx="${f==='r'?5.5:-5.5}" cy="1" r="1.3" class="eye"/>`);
-const Hd=(ax,ay,bx,by,f)=>{if(typeof bx==='string'){f=bx;bx=ax;by=ay}return (bx===ax&&by===ay)?`<g transform="translate(${ax} ${ay})">${face(f)}</g>`:aG(ax,ay,bx,by,face(f))};
-const torsoF=(cx,y1,y2)=>`<path d="M${cx-16} ${y1+5} Q${cx} ${y1-2} ${cx+16} ${y1+5} L${cx+11} ${y2} Q${cx} ${y2+3} ${cx-11} ${y2} Z" class="shirtF"/>`;
-const shoesF=(cx,y)=>`<ellipse cx="${cx-11}" cy="${y}" rx="8" ry="4.5" class="shoeE"/><ellipse cx="${cx+11}" cy="${y}" rx="8" ry="4.5" class="shoeE"/>`;
-const legsF=(cx,y1,y2)=>lp('leg',`${cx-6},${y1} ${cx-9},${y2}`)+lp('leg',`${cx+6},${y1} ${cx+9},${y2}`)+shoesF(cx,y2+3);
-const topHead=(x,y)=>`<circle cx="${x}" cy="${y}" r="11" class="hair"/><circle cx="${x}" cy="${y-10}" r="4.5" class="hair"/>`;
-const panel3=(cx,arm,dbp)=>topHead(cx,26)+`<rect x="${cx-18}" y="40" width="36" height="72" rx="12" class="shirtF"/>`+gd(cx-50,80,cx+50,80)+lp('arm',`${cx-14},52 ${cx-arm[0]},${arm[1]}`)+lp('arm',`${cx+14},52 ${cx+arm[0]},${arm[1]}`)+db(cx-dbp[0],dbp[1])+db(cx+dbp[0],dbp[1]);
-const vsquat={vb:'0 0 320 200',alt:'옆에서 본 V-스쿼트 움직임. 어깨·등·허리를 패드에 붙인 채 무릎을 발끝 방향으로 굽혔다 펴기',svg:
-  aPL('164,98 118,30','172,136 126,68','pad')+ln(176,174,262,174,'eq')+
-  lp('leg','170,80 200,122 205,163','178,118 228,128 205,163')+lp('shoe','205,166 229,166')+
-  lp('torso','134,30 170,80','142,68 178,118')+Hd(124,14,132,52,'r')+lp('arm','137,36 152,54','145,74 160,92')+
-  tx(14,60,'어깨·등·허리','p','start')+tx(14,76,'패드에 다 붙이기','p','start')+ar(84,86,128,90)+
-  ar(234,126,248,132)+tx(252,124,'무릎은','m','start')+tx(252,140,'발끝 방향','m','start')+
-  tx(160,194,'반동 없이 천천히, 바닥을 밀어준다는 느낌','m')};
-const ILLU={
- '루프밴드':{vb:'0 0 320 182',alt:'루프밴드를 가슴 앞에서 잡고 엄지가 멀어지도록 양옆으로 늘리는 움직임',svg:
-  tx(160,16,'엄지손가락이 멀어지도록 늘리기','p')+legsF(160,104,150)+torsoF(160,60,104)+Hd(160,44,'f')+
-  lp('arm','146,67 134,82 148,86','146,67 120,69 94,71')+lp('arm','174,67 186,82 172,86','174,67 200,69 226,71')+aRect([146,82,28],[92,67,136],'band')+
-  ar(80,52,60,52)+ar(240,52,260,52)+tx(160,178,'팔 힘 빼고 천천히 반복','m')},
- '시티드 레그프레스':{vb:'0 0 320 200',alt:'옆에서 본 시티드 레그프레스 움직임. 발바닥 전체로 발판을 밀었다가 천천히 돌아오기',svg:
-  ln(40,148,74,62,'pad')+ln(66,152,124,152,'pad')+
-  lp('leg','104,138 140,98 186,118','104,138 154,124 204,112')+aG(186,118,204,112,ln(10,-38,10,28,'plate')+lp('shoe','1,1 4,-18'))+
-  lp('torso','74,86 104,136')+Hd(64,70,'r')+lp('arm','80,96 100,126')+
-  ar(232,96,272,96)+tx(252,84,'발바닥 전체로 밀기','p')+
-  tx(160,178,'무릎은 발끝 방향과 일직선','m')+tx(160,196,'뒤꿈치 = 어깨너비 · 발끝 살짝 바깥','m')},
- 'V-스쿼트':vsquat,
- '인클라인 체스트 프레스':{vb:'0 0 320 200',alt:'손잡이를 쇄골 선에서 대각선 위로 밀었다가 천천히 돌아오는 움직임',svg:
-  ln(34,172,70,56,'pad')+lp('leg','58,144 100,146 102,178')+lp('shoe','103,181 121,181')+lp('torso','84,66 58,142')+Hd(90,48,'r')+
-  gd(60,76,170,76)+tx(174,80,'쇄골 선','p','start')+
-  lp('arm','84,74 70,98 104,77','84,74 112,60 146,47')+aC(107,77,149,46,5.5,'eqd')+ar(152,60,176,40)+tx(180,40,'밀기','m','start')+
-  [244,256,268,280].map(x=>`<rect x="${x}" y="50" width="10" height="40" rx="5" class="hand"/>`).join('')+
-  `<ellipse cx="236" cy="110" rx="7" ry="18" transform="rotate(-25 236 110)" class="hand"/><rect x="242" y="82" width="50" height="58" rx="16" class="hand"/><ellipse cx="267" cy="128" rx="20" ry="10" class="foot"/>`+
-  tx(268,160,'손바닥 아래쪽','p')+tx(268,176,'으로 밀기','p')+tx(14,197,'팔꿈치가 뒤로 빠지지 않게','m','start')},
- '풀오버':{vb:'0 0 320 192',alt:'의자에 앉아 앞으로 길게 늘린 팔을 아래로 당겼다가 다시 앞으로 끝까지 늘리는 움직임',svg:
-  `<rect x="60" y="130" width="62" height="12" rx="4" class="eqf"/>`+ln(90,142,90,176,'eq')+ar(40,138,40,114)+ar(40,142,40,166)+tx(40,186,'의자 높이','m')+
-  ln(124,178,198,178,'eq')+tx(198,192,'발 밟기','m','end')+
-  lp('leg','90,124 140,126 142,166')+lp('shoe','142,170 161,170')+lp('torso','96,70 90,122')+Hd(98,50,'r')+
-  lp('arm','97,76 128,52 158,46','97,76 112,102 134,116')+aC(161,46,137,118,5.5,'eqd')+
-  aq(172,50,214,38,236,72)+tx(315,96,'앞으로 끝까지 늘리기','p','end')+tx(315,22,'팔꿈치는 바깥으로 돌린 채','m','end')},
- '페이스풀':{vb:'0 0 320 205',alt:'앞에서 본 페이스풀 움직임. 앞으로 뻗은 팔을 팔꿈치가 옆과 위로 가도록 당기기',svg:
-  aPL('168,80 160,38 152,80','196,32 160,12 124,32','eq')+legsF(160,124,168)+torsoF(160,64,124)+Hd(160,48,'f')+
-  lp('arm','174,71 186,88 168,80','174,71 212,58 196,32')+lp('arm','146,71 134,88 152,80','146,71 108,58 124,32')+
-  ar(222,54,244,40)+ar(98,54,76,40)+tx(250,34,'팔꿈치를','p','start')+tx(250,50,'옆·위로','p','start')+
-  ar(192,84,192,106)+ar(128,84,128,106)+tx(315,124,'어깨는 귀와 멀게','m','end')+
-  tx(160,200,'손가락 마주보게 잡기 · 앞으로 당기지 않기','m')},
- '스텝업':{vb:'0 0 320 230',alt:'옆에서 본 스텝업 움직임. 엉덩이를 뒤로 뺀 자세에서 앞발 뒤꿈치를 누르며 머리부터 올라오기',svg:
-  `<rect x="150" y="181" width="120" height="34" rx="6" class="eqf"/>`+ln(20,216,300,216,'eq')+
-  lp('leg b','152,132 136,172 124,208','184,90 172,134 160,170')+lp('shoe b','124,210 108,208','160,172 148,168')+
-  lp('leg','152,132 197,140 177,173','184,90 181,135 177,173')+lp('shoe','177,176 201,176')+
-  lp('torso','172,88 152,130','186,48 184,88')+Hd(180,70,187,28,'r')+lp('arm','171,96 183,124','186,56 190,88')+
-  ar(128,84,128,44)+tx(118,62,'머리부터','p','end')+tx(118,78,'올라오기','p','end')+ar(140,140,116,140)+tx(110,144,'엉덩이 뒤로','m','end')+
-  tx(14,196,'뒷다리 반동 X','m','start')+tx(210,203,'뒤꿈치로 꾹','p')},
- '펙덱 플라이':{vb:'0 0 320 190',alt:'위에서 본 펙덱 플라이 움직임. 둥글게 벌린 팔을 앞으로 크게 모았다가 천천히 벌리기',svg:
-  tx(160,22,'앞으로 크게 모으기','p')+`<circle cx="160" cy="96" r="48" class="guide"/>`+
-  lpP('M124 136 Q70 120 76 72','M124 136 Q96 84 150 58')+lpP('M196 136 Q250 120 244 72','M196 136 Q224 84 170 58')+
-  `<ellipse cx="160" cy="140" rx="42" ry="17" class="shirtF"/>`+topHead(160,140)+aC(76,72,150,58,6,'eqd')+aC(244,72,170,58,6,'eqd')+
-  ar(112,46,140,52)+ar(208,46,180,52)+tx(12,110,'위에서','m','start')+tx(12,126,'본 모습','m','start')+tx(160,184,'팔꿈치 살짝 굽혀 둥글게 유지','m')},
- '시티드 로우 (상부)':{vb:'0 0 320 186',alt:'옆에서 본 시티드 로우 움직임. 손잡이를 당기며 팔꿈치를 뒤·위로 보내고 끝까지 이완하기',svg:
-  `<rect x="50" y="142" width="62" height="10" rx="4" class="eqf"/>`+ln(290,40,290,178,'eq')+
-  lp('leg','84,136 132,138 140,172')+lp('shoe','140,175 159,175')+lp('torso','87,74 83,134')+Hd(89,54,'r')+
-  aLN([152,84,288,84],[112,84,288,84],'eq')+lp('arm','87,82 115,83 143,84','87,82 53,64 103,84')+aC(147,84,108,84,5.5,'eqd')+
-  ar(46,68,32,42)+tx(14,30,'팔꿈치 뒤·위로','p','start')+tx(112,108,'손목은 일직선','m','start')+
-  ar(170,72,262,72,'arw dash')+tx(216,62,'이완은 끝까지','m')},
- '프론트 원암 로우':{vb:'0 0 320 194',alt:'좋은 예: 팔꿈치를 옆구리 쪽으로 접기. 나쁜 예: 팔꿈치가 몸에서 멀어짐',svg:
-  okm(26,26)+legsF(80,118,166)+lp('arm b','66,67 60,112')+torsoF(80,60,118)+Hd(80,44,'f')+
-  `<path d="M90 72 Q96 94 90 112" class="hl2" stroke-opacity=".1">${anim('stroke-opacity','.1','.9')}</path>`+lp('arm','94,67 108,96 112,122','94,67 100,100 94,112')+
-  nom(186,26)+legsF(240,118,166)+lp('arm b','226,67 220,112')+torsoF(240,60,118)+Hd(240,44,'f')+lp('arm','254,67 268,96 272,122','254,67 288,92 268,108')+
-  ln(160,20,160,176,'guide')+tx(80,192,'팔꿈치는 옆구리 쪽으로','m')+tx(240,192,'몸에서 멀어지면 X','m')},
- '덤벨 숄더프레스':{vb:'0 0 320 196',alt:'앞에서 본 덤벨 숄더프레스 움직임. 귀 높이에서 머리 위로 밀었다가 천천히 내리기',svg:
-  ln(128,144,192,144,'pad')+legsF(160,140,166)+torsoF(160,74,140)+Hd(160,58,'f')+
-  lp('arm','146,80 124,98 122,66','146,80 130,52 142,26')+lp('arm','174,80 196,98 198,66','174,80 190,52 178,26')+aG(122,62,142,22,db(0,0))+aG(198,62,178,22,db(0,0))+
-  ar(250,100,250,44)+tx(258,76,'밀기','m','start')+tx(160,192,'팔꿈치가 몸 뒤로 빠지지 않게','p')},
- '덤벨 인클라인 체스트프레스':{vb:'0 0 320 182',alt:'위에서 본 덤벨 위치 비교. 좋은 예는 명치 위로 펀치하듯 밀기, 나쁜 예는 팔꿈치를 너무 벌리거나 너무 붙임',svg:
-  topHead(58,26)+`<rect x="40" y="40" width="36" height="72" rx="12" class="shirtF"/>`+gd(8,80,108,80)+
-  lp('arm','44,52 22,78','44,52 44,72')+lp('arm','72,52 94,78','72,52 72,72')+aG(22,80,44,72,db(0,0))+aG(94,80,72,72,db(0,0))+
-  panel3(160,[40,50],[42,50])+panel3(262,[26,100],[28,102])+
-  tx(160,10,'점선 = 명치 높이','m')+okm(58,138)+nom(160,138)+nom(262,138)+
-  tx(58,172,'명치 위로 펀치','m')+tx(160,172,'너무 벌림','m')+tx(262,172,'너무 붙임','m')},
- '업라이트 로우':{vb:'0 0 320 192',alt:'앞에서 본 업라이트 로우 움직임. 팔꿈치를 위로 올리며 바를 가슴까지 당기기',svg:
-  legsF(160,124,176)+torsoF(160,60,124)+Hd(160,44,'f')+
-  lp('arm','174,67 177,96 170,124','174,67 210,57 170,94')+lp('arm','146,67 143,96 150,124','146,67 110,57 150,94')+aLN([132,124,188,124],[132,94,188,94],'bar')+
-  ar(216,52,224,28)+ar(104,52,96,28)+tx(232,30,'팔꿈치를','p','start')+tx(232,46,'위로','p','start')+tx(198,112,'손목 꺾이지 않게','m','start')},
- 'V-런지':{vb:'0 -20 320 216',alt:'옆에서 본 V-런지 움직임. 고관절과 무릎을 동시에 접어 내려갔다가 앞발 뒤꿈치로 올라오기',svg:
-  ln(40,178,300,178,'eq')+
-  lp('leg b','176,80 146,124 122,166','170,112 171,163 122,166')+lp('shoe b','122,169 107,176')+
-  lp('leg','176,80 210,121 212,168','170,112 222,122 212,168')+lp('shoe','212,172 236,172')+
-  lp('torso','179,28 176,78','176,60 170,110')+Hd(180,8,178,40,'r')+lp('arm','179,36 182,70','176,68 179,102')+
-  ar(214,56,200,86)+tx(220,54,'고관절·무릎','p','start')+tx(220,70,'동시에 접기','p','start')+
-  tx(24,146,'뒷발은 힘 빼기','m','start')+tx(222,193,'앞발 뒤꿈치 꾹 눌러 올라오기','m')}
-};
-ILLU['핵스쿼트']=Object.assign({},vsquat,{note:'V-스쿼트와 방법이 같아요'});
+/* 운동 그림: 여성 3D 마네킹이 헬스장 기구에서 움직이는 그림 (anim/<id>.webp)
+   [파일 이름, 주 자극 근육, 보조 근육] */
+const ANIM={"체스트 프레스": ["ex01", ["chest"], ["frontDelt", "triceps"]], "와이드 체스트 프레스": ["ex02", ["chest"], ["frontDelt", "triceps"]], "덤벨 체스트프레스": ["ex03", ["chest"], ["frontDelt", "triceps"]], "인클라인 체스트 프레스": ["ex04", ["upperChest"], ["chest", "frontDelt", "triceps"]], "덤벨 인클라인 체스트프레스": ["ex05", ["upperChest"], ["chest", "frontDelt", "triceps"]], "푸쉬업": ["ex06", ["chest"], ["triceps", "frontDelt", "abs"]], "펙덱 플라이": ["ex07", ["chest"], ["frontDelt"]], "루프밴드": ["ex08", ["rearDelt"], ["midBack"]], "바이킹 프레스": ["ex09", ["frontDelt", "sideDelt"], ["triceps", "trap"]], "리버스 숄더프레스": ["ex10", ["frontDelt", "sideDelt"], ["triceps"]], "덤벨 숄더프레스": ["ex11", ["frontDelt", "sideDelt"], ["triceps"]], "숄더프레스 (전면)": ["ex12", ["frontDelt"], ["sideDelt", "triceps"]], "업라이트 로우": ["ex13", ["sideDelt"], ["trap", "frontDelt"]], "사이드 레터럴 레이즈": ["ex14", ["sideDelt"], ["trap"]], "프론트 레이즈": ["ex15", ["frontDelt"], ["sideDelt"]], "페이스풀": ["ex16", ["rearDelt"], ["midBack", "trap"]], "리버스 펙덱 플라이": ["ex17", ["rearDelt"], ["midBack"]], "벤트오버 레이즈 (후면)": ["ex18", ["rearDelt"], ["midBack"]], "이두컬": ["ex19", ["biceps"], []], "덤벨 킥백": ["ex20", ["triceps"], []], "핵스쿼트": ["ex21", ["quad", "glute"], ["ham"]], "V-스쿼트": ["ex22", ["quad", "glute"], ["ham", "adductor"]], "파워 레그프레스": ["ex23", ["ham", "glute"], ["quad"]], "시티드 레그프레스": ["ex24", ["quad", "glute"], ["ham"]], "불가리안 스플릿 스쿼트": ["ex25", ["glute", "quad"], ["ham"]], "V-런지": ["ex26", ["glute", "quad"], ["ham"]], "스미스 런지": ["ex27", ["glute", "quad"], ["ham"]], "스텝업": ["ex28", ["glute", "quad"], ["ham"]], "레그 익스텐션": ["ex29", ["quad"], []], "레그컬": ["ex30", ["ham"], ["calf"]], "아웃타이": ["ex31", ["glute", "abductor"], []], "이너타이": ["ex32", ["adductor"], []], "숄더패킹": ["ex33", ["lat"], ["midBack"]], "데드리프트": ["ex34", ["glute", "ham", "lowBack"], ["quad", "trap"]], "랫풀다운": ["ex35", ["lat"], ["biceps", "midBack"]], "어시스트 풀업": ["ex36", ["lat"], ["biceps", "midBack"]], "T바 로우": ["ex37", ["midBack", "lat"], ["rearDelt", "biceps"]], "시티드 로우 (상부)": ["ex38", ["midBack", "rearDelt"], ["lat", "trap"]], "하이로우": ["ex39", ["lat", "midBack"], ["biceps"]], "프론트 로우 (양팔)": ["ex40", ["lat", "midBack"], ["biceps"]], "프론트 원암 로우": ["ex41", ["lat", "midBack"], ["biceps"]], "풀오버": ["ex42", ["lat"], ["triceps"]]};
+const MUS={chest:'가슴',upperChest:'윗가슴',abs:'복근',lat:'광배(등 넓은 근육)',midBack:'등 가운데',trap:'승모',lowBack:'허리',glute:'엉덩이',abductor:'엉덩이 옆',
+  delt:'어깨',frontDelt:'어깨 앞',sideDelt:'어깨 옆',rearDelt:'어깨 뒤',biceps:'이두(팔 앞)',triceps:'삼두(팔 뒤)',quad:'앞벅지',ham:'뒷벅지',adductor:'안쪽 허벅지',calf:'종아리'};
+const musTxt=l=>l.map(m=>MUS[m]||m).join(' · ');
 const icoPause='<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="4" width="5" height="16" rx="1"/><rect x="14" y="4" width="5" height="16" rx="1"/></svg>';
 const icoPlay='<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
+const hasAnim=n=>!!ANIM[n];
 function drawBlock(n){
-  const d=(DRAW[n]||[])[0],il=ILLU[n];
-  if(!il)return (DRAW[n]||[]).map(x=>sketch(n,x)).join('');
+  const d=(DRAW[n]||[])[0],a=ANIM[n];
+  if(!a)return (DRAW[n]||[]).map(x=>sketch(n,x)).join('');
+  const [id,hot,warm]=a;
   const orig=d?`<button class="orig" data-img="img/${d.f}.jpg" aria-label="트레이너가 손으로 그린 ${esc(n)} 원본 그림 (${d.d})">쌤 원본 보기</button>`:'';
-  return `<figure class="illu sv"><svg viewBox="${il.vb}" role="img" aria-label="${esc(il.alt)}">${il.svg}</svg><figcaption><span>${il.note||'움직이는 그림 · 힘주고 → 천천히 돌아오기'}</span><span class="fc-btns"><button class="orig" data-anim aria-pressed="false">${icoPause}멈춤</button>${orig}</span></figcaption></figure>`;
+  return `<figure class="illu anim"><img class="anim-img" src="anim/${id}.webp" data-id="${id}" alt="${esc(n)} 동작: 시작 자세에서 힘주고 천천히 돌아오기를 반복하는 그림" loading="lazy" width="480" height="360">
+    <div class="mus"><div><span class="mk hot"></span>주 자극 <b>${musTxt(hot)}</b></div>${warm.length?`<div><span class="mk warm"></span>보조 <b>${musTxt(warm)}</b></div>`:''}</div>
+    <figcaption><span>점선 화살표 = 힘주는 방향 · 천천히 돌아오기</span><span class="fc-btns"><button class="orig" data-anim aria-pressed="false">${icoPause}멈춤</button>${orig}</span></figcaption></figure>`;
 }
 function settleAnims(root){
-  const rm=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  root.querySelectorAll('.illu svg').forEach(s=>{if(rm&&s.pauseAnimations){s.pauseAnimations();s.setCurrentTime(1.65);const b=s.parentNode.querySelector('[data-anim]');if(b){b.setAttribute('aria-pressed','true');b.innerHTML=icoPlay+'재생'}}});
-  root.querySelectorAll('.thumb svg').forEach(s=>{if(s.pauseAnimations){s.pauseAnimations();s.setCurrentTime(1.65)}});
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  root.querySelectorAll('.anim-img').forEach(im=>{im.src=`anim/${im.dataset.id}_s.webp`;const b=im.closest('.illu').querySelector('[data-anim]');if(b){b.setAttribute('aria-pressed','true');b.innerHTML=icoPlay+'재생'}});
 }
 function toggleAnim(b){
-  const s=b.closest('.illu').querySelector('svg'),paused=b.getAttribute('aria-pressed')==='true';
-  if(paused){s.unpauseAnimations();b.setAttribute('aria-pressed','false');b.innerHTML=icoPause+'멈춤'}
-  else{s.pauseAnimations();b.setAttribute('aria-pressed','true');b.innerHTML=icoPlay+'재생'}
+  const im=b.closest('.illu').querySelector('.anim-img'),paused=b.getAttribute('aria-pressed')==='true';
+  im.src=`anim/${im.dataset.id}${paused?'':'_s'}.webp`;b.setAttribute('aria-pressed',paused?'false':'true');b.innerHTML=(paused?icoPause+'멈춤':icoPlay+'재생');
 }
 const sketch=(n,x)=>`<button class="sketch" data-img="img/${x.f}.jpg" aria-label="${esc(n)} 쌤 그림 크게 보기"><img src="img/${x.f}.jpg" alt="트레이너가 손으로 그린 ${esc(n)} 자세 메모 (${x.d})" loading="lazy"><span>${x.c?esc(x.c):'쌤 그림'} · ${x.d} · 누르면 크게 보여요</span></button>`;
 
@@ -880,7 +782,7 @@ function stepKg(w,dir){
   return nv<=0?'빈 바':`${nv}kg`;
 }
 const newItem=(n,setsN)=>{const d=lastDefaults(n);return{n,sets:Array.from({length:setsN||d.sets},()=>({w:String(d.w),r:String(d.r),done:false}))}};
-const thumb=n=>{const il=ILLU[n];return `<span class="thumb sv" style="${pc(meta(n).p)}">${il?`<svg viewBox="${il.vb}" aria-hidden="true">${il.svg}</svg>`:`<b>${esc(n[0])}</b>`}</span>`};
+const thumb=n=>{const a=ANIM[n];return `<span class="thumb" style="${pc(meta(n).p)}">${a?`<img src="anim/${a[0]}_s.webp" alt="" loading="lazy">`:`<b>${esc(n[0])}</b>`}</span>`};
 
 /* ---------- 홈 ---------- */
 function renderHome(){
@@ -961,9 +863,9 @@ function fillLibrary(){
     .sort((a,b)=>order[exPart(a)]-order[exPart(b)]||a.localeCompare(b,'ko'));
   const el=document.getElementById('xlist');
   el.innerHTML=names.map(n=>{
-    const l=EX[n].slice().sort((a,b)=>b.s.i-a.s.i),p=exPart(n),il=ILLU[n];
+    const l=EX[n].slice().sort((a,b)=>b.s.i-a.s.i),p=exPart(n);
     const best=Math.max(0,...l.flatMap(x=>x.e.r.map(r=>kg(r[0])||0)));
-    return `<button class="xrow" data-ex="${esc(n)}" style="${pc(p)}"><span class="thumb sv">${il?`<svg viewBox="${il.vb}" aria-hidden="true">${il.svg}</svg>`:`<b>${esc(n[0])}</b>`}</span><span class="xmain"><strong>${esc(n)}</strong><span>${PARTS[p]} · ${l.length}번 · 최근 ${l[0].s.d}${best?` · 최고 ${best}kg`:''}</span></span>${icoChev}</button>`}).join('')||'<p class="msg" style="padding:16px">찾는 운동이 없어요. 이름을 짧게 입력해 보세요.</p>';
+    return `<button class="xrow" data-ex="${esc(n)}" style="${pc(p)}">${thumb(n)}<span class="xmain"><strong>${esc(n)}</strong><span>${PARTS[p]} · ${l.length}번 · 최근 ${l[0].s.d}${best?` · 최고 ${best}kg`:''}</span></span>${icoChev}</button>`}).join('')||'<p class="msg" style="padding:16px">찾는 운동이 없어요. 이름을 짧게 입력해 보세요.</p>';
   settleAnims(el);
 }
 
@@ -1127,7 +1029,7 @@ function renderWorkout(){
         <button class="chk" data-ei="${ei}" data-si="${si}" aria-pressed="${!!st.done}" aria-label="${esc(it.n)} ${si+1}세트 완료">${icoCheck}</button></div>`}).join('');
     return `<article class="card wex" style="${pc(meta(it.n).p)}">
       <div class="wex-h"><span class="n">${ei+1}</span><div style="flex:1;min-width:0"><h3>${esc(it.n)}</h3>${it.flag?`<p class="flag">${esc(it.flag)}</p>`:''}</div>
-        <button class="how" data-ex="${esc(it.n)}">${ILLU[it.n]?'그림·':''}자세${mini(icoChev)}</button><button class="how" data-wswap="${ei}">바꾸기</button></div>
+        <button class="how" data-ex="${esc(it.n)}">${hasAnim(it.n)?'그림·':''}자세${mini(icoChev)}</button><button class="how" data-wswap="${ei}">바꾸기</button></div>
       ${m?`<button class="memo-line" data-ex="${esc(it.n)}"><b>쌤</b><span>${esc(m.e.t)}</span></button>`:''}
       <div class="stbl"><div class="st hd"><span>세트</span><span>지난번${pv1?` (${pv1.d}${pv1.mine?' 혼자':''})`:''}</span><span>무게</span><span>회</span><span>완료</span></div>${rows}</div>
       <div class="set-act"><button data-wset="${ei}" data-d="1">＋ 세트 추가</button><button data-wset="${ei}" data-d="-1" ${it.sets.length<=1?'disabled':''}>− 세트 빼기</button></div>
