@@ -346,6 +346,16 @@ main .col{padding-block:20px 112px;display:flex;flex-direction:column;gap:22px}
 .btn-text{background:none;color:var(--muted);font-weight:600;font-size:14.5px;padding:10px;text-decoration:underline;text-underline-offset:3px}
 .btn-danger{background:transparent;border:1.5px solid var(--red);color:var(--red);border-radius:14px;padding:13px;font-weight:700;font-size:15px;width:100%}
 
+/* record editor */
+.ed-top{display:flex;flex-direction:column;gap:6px}
+.ed-top label{font-size:13px;font-weight:600;color:var(--ink-2)}
+.eex{padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.erow{display:grid;grid-template-columns:30px minmax(0,1fr) minmax(0,1fr) 36px;gap:6px;align-items:center}
+.erow.hd{font-size:11.5px;color:var(--muted);font-weight:600;text-align:center}
+.erow .sn{font-family:var(--f-num);font-weight:700;text-align:center;color:var(--muted)}
+.erow .icon-x{width:36px;height:36px}
+select.field{appearance:auto}
+
 /* account */
 .acct{display:flex;align-items:center;gap:12px;padding:14px 16px}
 .acct>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
@@ -961,7 +971,7 @@ function fillLibrary(){
 const sheet=document.getElementById('sheet'),sheetBody=document.getElementById('sheetBody'),sheetTitle=document.getElementById('sheetTitle');
 let sheetFrom=null;
 function openSheet(title,html,p){sheetFrom=document.activeElement;sheetTitle.textContent=title;sheetBody.innerHTML=html;sheet.querySelector('.sheet').setAttribute('style',p?pc(p):'');sheet.hidden=false;sheet.querySelector('.sheet').scrollTop=0;settleAnims(sheetBody);sheet.querySelector('[data-close].icon-btn').focus()}
-function closeSheet(){sheet.hidden=true;sheetBody.innerHTML='';if(sheetFrom&&sheetFrom.isConnected)sheetFrom.focus()}
+function closeSheet(){er=null;sheet.hidden=true;sheetBody.innerHTML='';if(sheetFrom&&sheetFrom.isConnected)sheetFrom.focus()}
 
 function chartHtml(n){
   const pts=EX[n].slice().sort((a,b)=>a.s.i-b.s.i).map(x=>({d:x.s.d,v:Math.max(0,...x.e.r.map(r=>kg(r[0])||0))})).filter(p=>p.v>0);
@@ -1009,7 +1019,8 @@ function sessSheet(id){
     <div class="kv"><div><b>${fmtLong(s.ms).replace(/분$/,'')}</b><span>${s.ms<3600000?'분 운동':'운동 시간'}</span></div><div><b>${setsOf(s)}</b><span>세트</span></div><div><b>${Math.round(vol).toLocaleString()}</b><span>kg 총 볼륨</span></div></div>
     <div class="card rows ex-list">${s.ex.map(e=>`<button class="lrow" data-ex="${esc(e.n)}" style="width:100%;text-align:left"><strong>${esc(e.n)}</strong><span>${e.r.map(rowTxt).join('<br>')}</span></button>`).join('')}</div>
     <button class="btn-dark" data-go="${s.id}">이 기록 그대로 다시 하기</button>
-    <button class="btn-light" data-del="${esc(s.uid)}">이 기록 지우기</button>`;
+    <button class="btn-light" data-editrec="${esc(s.uid)}">기록 수정</button>
+    <button class="btn-text" data-del="${esc(s.uid)}">이 기록 지우기</button>`;
     openSheet(`${s.d} ${PARTS[s.p]}`,html,s.p);return;
   }
   const html=`<div>${tag(s.p)} <span class="msg">${s.date?`${s.date.getMonth()+1}월 ${s.date.getDate()}일 ${wdOf(s)}요일`:'첫 수업'}</span></div>
@@ -1141,6 +1152,41 @@ function exPicker(mode,ei,part){
   ${mode==='swap'&&ws.items.length>1?`<button class="btn-light" data-wdel="${ei}">이 운동 빼기</button>`:''}`;
   openSheet(mode==='swap'?'어떤 운동으로 바꿀까요?':'어떤 운동을 추가할까요?',html,xp.part);
 }
+/* ---------- 내 기록 고치기 ---------- */
+let er=null; /* 고치는 중인 기록 (원본은 저장 전까지 그대로) */
+const ymd=ms=>{const d=new Date(ms);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+function editRec(uid){
+  const r=U.find(x=>String(x.id)===String(uid));if(!r)return;
+  er=JSON.parse(JSON.stringify(r));er.ex=(er.ex||[]).map(x=>({n:x.n,sets:(x.sets||[]).map(s=>({w:String(s.w??''),r:String(s.r??'')}))}));
+  openSheet('기록 수정',editHtml(),er.part);
+}
+function editHtml(){
+  const opts=ORDER.map(p=>`<optgroup label="${PARTS[p]}">${partEx(p).map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}</optgroup>`).join('');
+  return `<div class="ed-top"><label for="eDate">날짜</label><input class="field" id="eDate" type="date" value="${ymd(er.start)}" max="${ymd(Date.now())}"></div>
+  <div class="seg">${ORDER.map(k=>`<button data-epart="${k}" aria-pressed="${k===er.part}">${PARTS[k]}</button>`).join('')}</div>
+  ${er.ex.map((x,ei)=>`<section class="card eex" style="${pc(meta(x.n).p)}">
+    <div class="trow-h"><span class="n">${ei+1}</span><strong>${esc(x.n)}</strong><button class="icon-x" data-edelex="${ei}" aria-label="${esc(x.n)} 빼기">×</button></div>
+    <div class="erow hd"><span>세트</span><span>무게</span><span>횟수</span><span></span></div>
+    ${x.sets.map((s,si)=>`<div class="erow"><span class="sn">${si+1}</span>
+      <input class="cell" data-eei="${ei}" data-esi="${si}" data-ef="w" value="${esc(s.w)}" placeholder="무게" aria-label="${esc(x.n)} ${si+1}세트 무게">
+      <input class="cell" data-eei="${ei}" data-esi="${si}" data-ef="r" value="${esc(s.r)}" inputmode="numeric" placeholder="횟수" aria-label="${esc(x.n)} ${si+1}세트 횟수">
+      <button class="icon-x" data-edelset="${ei}:${si}" aria-label="${si+1}세트 빼기">−</button></div>`).join('')}
+    <div class="set-act"><button data-eaddset="${ei}">＋ 세트 추가</button></div>
+  </section>`).join('')||'<p class="msg">운동이 하나도 없어요. 아래에서 추가하거나, 이 기록을 지워 주세요.</p>'}
+  <select class="field" id="eAdd" aria-label="운동 추가"><option value="">＋ 운동 추가하기</option>${opts}</select>
+  <button class="btn-dark" data-esave>저장</button>
+  <button class="btn-light" data-close>취소</button>
+  <p class="msg">저장하면 기록 · "지난번" 칸 · 무게 그래프에 바로 반영돼요.</p>`;
+}
+function rerenderEdit(){const sh=sheet.querySelector('.sheet'),top=sh.scrollTop;sheetBody.innerHTML=editHtml();sh.scrollTop=top}
+async function saveEdit(){
+  er.ex=er.ex.map(x=>({n:x.n,sets:x.sets.map(s=>({w:s.w.trim(),r:s.r.trim()})).filter(s=>s.w||s.r)})).filter(x=>x.sets.length);
+  if(!er.ex.length){toast('세트가 하나도 없어요. 운동을 추가하거나 기록을 지워 주세요');rerenderEdit();return}
+  const rec=er;er=null;closeSheet();
+  const ok=await Hist.add(rec);
+  toast(ok?'기록을 고쳤어요':'계정 저장이 잠깐 안 돼서 이 휴대폰에 먼저 고쳐 뒀어요');
+}
+
 function cancelSheet(){
   const d=doneN(ws);
   const html=`<p class="msg" style="font-size:15px">${esc(ws.title)} · ${d}/${totalN(ws)}세트 했어요</p>
@@ -1378,6 +1424,12 @@ document.addEventListener('click',e=>{
   if(d.act==='build'){openBuild();return}
   if(d.act==='finish'){finishSheet();return}
   if(d.act==='cancelask'){if(ws)cancelSheet();return}
+  if(d.editrec){editRec(d.editrec);return}
+  if(er&&d.epart){er.part=d.epart;er.title=String(er.title||'').replace(/^(어깨|하체|가슴|등|OT)/,PARTS[d.epart]);sheet.querySelector('.sheet').setAttribute('style',pc(er.part));rerenderEdit();return}
+  if(er&&d.edelex!==undefined){er.ex.splice(+d.edelex,1);rerenderEdit();return}
+  if(er&&d.edelset){const [ei,si]=d.edelset.split(':').map(Number);er.ex[ei].sets.splice(si,1);if(!er.ex[ei].sets.length)er.ex.splice(ei,1);rerenderEdit();return}
+  if(er&&d.eaddset!==undefined){const x=er.ex[+d.eaddset],l=x.sets[x.sets.length-1]||{w:'',r:'12'};x.sets.push({w:l.w,r:l.r});rerenderEdit();return}
+  if(er&&b.hasAttribute('data-esave')){saveEdit();return}
   if(d.act==='cancelgo'){cancelWorkout();return}
   if(d.act==='endpartial'){ws.finished=true;ws.end=Date.now();saveWs();closeSheet();if(!wo.hidden)closeWorkout();else render();saveWorkout();return}
   if(b.hasAttribute('data-resttgl')){restAuto=!restAuto;store.set('ptnote-rest-auto',restAuto);if(!restAuto)stopRest();b.setAttribute('aria-pressed',restAuto);b.lastChild.textContent=`체크하면 휴식 타이머 시작 · ${restAuto?'켜짐':'꺼짐'}`;toast(restAuto?'세트를 체크하면 휴식 타이머가 시작돼요':'휴식 타이머를 껐어요');return}
@@ -1407,6 +1459,12 @@ bdBody.addEventListener('change',e=>{const i=e.target.closest('[data-bw]');if(!i
 document.getElementById('woClose').addEventListener('click',closeWorkout);
 document.getElementById('woFinish').addEventListener('click',finishSheet);
 document.getElementById('lbx').addEventListener('click',closeLb);
+sheetBody.addEventListener('change',e=>{
+  if(!er)return;const i=e.target;
+  if(i.dataset.eei!==undefined){er.ex[+i.dataset.eei].sets[+i.dataset.esi][i.dataset.ef]=i.value;return}
+  if(i.id==='eDate'&&i.value){const [y,m,dd]=i.value.split('-').map(Number),old=new Date(er.start),nd=new Date(old);nd.setFullYear(y,m-1,dd);const diff=nd-old;er.start+=diff;if(er.end)er.end+=diff;return}
+  if(i.id==='eAdd'&&i.value){const it=newItem(i.value);er.ex.push({n:it.n,sets:it.sets.map(s=>({w:s.w,r:s.r}))});rerenderEdit();return}
+});
 woList.addEventListener('change',e=>{const i=e.target.closest('.cell');if(!i||i.dataset.ei===undefined)return;
   const ei=i.dataset.ei,it=ws.items[+ei],si=+i.dataset.si,f=i.dataset.f,old=it.sets[si][f],val=i.value.trim();it.sets[si][f]=val;
   /* 아래쪽 아직 안 한 세트도 같은 값이었으면 같이 바꿔줘요 */
