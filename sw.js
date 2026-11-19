@@ -1,28 +1,35 @@
-// 헬스장 와이파이가 약해도 열리도록 한 번 연 화면 파일과 글꼴을 저장해 둡니다.
-// 로그인·운동 기록 같은 계정 데이터(Supabase)는 저장하지 않고 항상 서버에서 받아요.
-const CACHE = 'pt-note-v11';
+// PT 운동 노트 — 오프라인 저장 + 업데이트 알림
+// 새 버전을 올릴 때마다 CACHE 숫자와 version.json 의 notes 를 바꿔 주세요.
+// 새 버전은 미리 받아 두기만 하고, 앱에서 "업데이트"를 눌러야 적용돼요.
+const CACHE = 'pt-note-v12';
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
+// 계정 데이터(Supabase)는 저장하지 않아요. 글꼴과 라이브러리만 함께 보관해요.
 const CACHEABLE = /^(fonts\.googleapis\.com|fonts\.gstatic\.com|cdn\.jsdelivr\.net)$/;
+
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
+  // 새 버전 파일을 서버에서 새로 받아 둡니다 (10분 임시 보관 무시).
+  e.waitUntil(caches.open(CACHE).then(c => Promise.all(CORE.map(u =>
+    fetch(u, { cache: 'no-cache' }).then(r => { if (r.ok) return c.put(u, r); })
+  ))));
+});
+self.addEventListener('message', e => {
+  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys()
+    .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+    .then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
-  if (url.origin !== self.location.origin && !CACHEABLE.test(url.hostname)) return;
-  // 새 기록·새 버전이 바로 보이도록 네트워크를 먼저 쓰고, 안 되면 저장본을 씁니다.
-  // 앱 파일은 열 때마다 서버에 새 버전이 있는지 확인해요(10분 임시 보관 무시) → 업데이트가 바로 보여요.
-  const req = url.origin === self.location.origin ? new Request(e.request, { cache: 'no-cache' }) : e.request;
-  e.respondWith(
-    fetch(req).then(res => {
-      if (res.ok || res.type === 'opaque') {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, copy));
-      }
+  const same = url.origin === self.location.origin;
+  if (!same && !CACHEABLE.test(url.hostname)) return;
+  // 지금 쓰는 버전을 먼저 보여주고, 없는 파일(그림 등)만 서버에서 받아 보관해요.
+  e.respondWith(caches.open(CACHE).then(c =>
+    c.match(e.request, { ignoreSearch: true }).then(hit => hit || fetch(e.request).then(res => {
+      if (res.ok || res.type === 'opaque') c.put(e.request, res.clone());
       return res;
-    }).catch(() => caches.match(e.request, { ignoreSearch: true }))
-  );
+    }).catch(() => e.request.mode === 'navigate' ? c.match('index.html') : Response.error()))
+  ));
 });

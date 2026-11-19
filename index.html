@@ -1394,6 +1394,43 @@ render();
 Hist.init();
 </script>
 
-<script>if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(()=>{})}</script>
+<style>
+.upd{position:fixed;inset:0;z-index:80;background:rgb(0 0 0 / .45);display:flex;align-items:flex-end;justify-content:center;padding:16px max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.upd-card{width:100%;max-width:440px;background:var(--surface);color:var(--ink);border-radius:22px;padding:20px;display:flex;flex-direction:column;gap:8px;box-shadow:0 12px 40px rgb(0 0 0 / .3)}
+.upd-card h2{font-size:19px;font-weight:700}
+.upd-card p{font-size:14.5px;color:var(--muted);line-height:1.55}
+.upd-btns{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:8px}
+</style>
+<script>
+/* 새 버전 알림: 새 버전을 받아 두면 "업데이트할까요?"를 묻고, 확인하면 바로 바꿔요. */
+(()=>{
+  if(!('serviceWorker' in navigator))return;
+  if(!(location.protocol==='https:'||location.hostname==='localhost'))return;
+  let reloading=false,open=false,lastNo=0;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(reloading)return;reloading=true;location.reload()});
+  function ask(reg){
+    if(open||!reg.waiting||!navigator.serviceWorker.controller)return;
+    if(Date.now()-lastNo<30*60*1000)return; /* 취소하면 30분 동안은 다시 묻지 않아요 */
+    open=true;
+    const el=document.createElement('div');el.className='upd';
+    el.innerHTML='<section class="upd-card" role="dialog" aria-modal="true" aria-labelledby="updT"><h2 id="updT">새 버전이 있어요</h2><p id="updN">업데이트하면 새 기능이 바로 적용돼요.</p><p>운동 기록과 진행 중인 운동은 그대로 남아요.</p><div class="upd-btns"><button class="btn-light" id="updNo">취소</button><button class="btn-dark" id="updYes">업데이트</button></div></section>';
+    document.body.appendChild(el);document.getElementById('updYes').focus();
+    fetch('version.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(v=>{if(v&&v.notes)document.getElementById('updN').textContent=v.notes}).catch(()=>{});
+    document.getElementById('updNo').onclick=()=>{lastNo=Date.now();open=false;el.remove()};
+    document.getElementById('updYes').onclick=e=>{
+      const w=reg.waiting;e.target.disabled=true;e.target.textContent='업데이트 중…';
+      if(w)w.postMessage({type:'SKIP_WAITING'});else location.reload();
+    };
+  }
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    ask(reg);
+    reg.addEventListener('updatefound',()=>{const w=reg.installing;if(w)w.addEventListener('statechange',()=>{if(w.state==='installed')ask(reg)})});
+    const check=()=>reg.update().then(()=>ask(reg)).catch(()=>{});
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')check()});
+    setTimeout(check,1500);
+  }).catch(()=>{});
+})();
+</script>
+
 </body>
 </html>
