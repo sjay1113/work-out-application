@@ -336,6 +336,17 @@ main .col{padding-block:20px 112px;display:flex;flex-direction:column;gap:22px}
 .bd-cta{position:fixed;left:0;right:0;bottom:0;z-index:31;padding-top:10px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid var(--line)}
 .btn-dark:disabled{opacity:.45}
 
+/* account */
+.acct{display:flex;align-items:center;gap:12px;padding:14px 16px}
+.acct>div{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.acct strong{font-size:15px;overflow-wrap:anywhere}
+.acct span{font-size:13px;color:var(--muted)}
+.btn-dark.sm,.btn-light.sm{width:auto;flex:none;padding:10px 14px;font-size:14px}
+.auth{display:flex;flex-direction:column;gap:8px}
+.auth label{font-size:13px;font-weight:600;color:var(--ink-2);margin-top:4px}
+.field{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 14px;font:inherit;font-size:16px;color:var(--ink)}
+.auth .msg{min-height:1.2em}
+
 /* my records */
 .tagline{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .mine{font-style:normal;font-size:11px;font-weight:700;color:var(--ink-2);background:var(--surface-3);padding:2px 7px;border-radius:6px;white-space:nowrap}
@@ -890,6 +901,7 @@ function renderHome(){
   <section class="sec">
     <div class="sec-h"><h2>지금까지</h2><span class="link">${Hist.label()}</span></div>
     <div class="tiles"><div class="card tile"><b>${total}<small>회</small></b><span>총 운동${mineN?` · 혼자 ${mineN}`:''}</span></div><div class="card tile"><b>${thisMonth}<small>회</small></b><span>이번 달</span></div><div class="card tile"><b>${allSets}<small>세트</small></b><span>총 세트</span></div></div>
+    ${Hist.kind==='supa'&&!Hist.user?acctCard():''}
   </section>
   <section class="sec">
     <div class="sec-h"><h2>최근 기록</h2><button class="link" data-tab="history">전체 보기</button></div>
@@ -906,6 +918,7 @@ function renderHistory(){
   ALL.slice().reverse().forEach(s=>{const k=s.date?`${s.date.getMonth()+1}월`:'시작';let g=groups[groups.length-1];if(!g||g.k!==k){g={k,l:[]};groups.push(g)}g.l.push(s)});
   view.innerHTML=`
   <header class="ph"><h1>기록</h1><p class="sub">PT ${S.length}회 · 혼자 ${ALL.length-S.length}회 · ${Hist.label()}</p></header>
+  ${acctCard()}
   ${ALL.length===S.length?'<div class="card empty"><strong>아직 혼자 한 운동 기록이 없어요</strong><span>홈에서 운동을 시작하고 "운동 끝내기"를 누르면 여기에 쌓여요.</span></div>':''}
   ${groups.map(g=>`<section class="sec"><p class="month">${g.k} · ${g.l.length}회</p><div class="card rows">${g.l.map(sessRow).join('')}</div></section>`).join('')}`;
 }
@@ -1162,15 +1175,23 @@ lb.addEventListener('click',e=>{if(e.target!==lbimg)closeLb()});
 /* ---------- 내 운동 기록 저장 ----------
    claude.ai에서 열면: 내 계정의 개인 공간(data/users/<나>/)에 저장 → 다른 기기에서도 보이고 다른 사람은 못 봐요.
    그 밖(깃허브 주소 등)에서 열면: 이 휴대폰 브라우저에 저장. 계정 저장이 잠깐 안 될 때도 여기 먼저 보관했다가 올려요. */
+/* Supabase (깃허브 주소로 열었을 때만 사용). 공개용 키라 앱에 들어가도 괜찮아요 — 실제 보호는 DB의 '본인 기록만' 규칙이 해요. */
+const SUPA={url:'https://dqvdsvbuitupyfhvwtga.supabase.co',key:'sb_publishable_Mh4u7113bms3N-6jzgoBig_eiSxXq7O',
+  js:'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js'};
+const loadScript=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=no;document.head.appendChild(s)});
 const Hist={
-  col:null,cloud:false,connecting:false,cloudDocs:[],
+  kind:'local',col:null,sb:null,user:null,sbFailed:false,cloud:false,connecting:false,cloudDocs:[],
   pending(){const l=store.get('ptnote-history',[]);return Array.isArray(l)?l:[]},
   setPending(l){store.set('ptnote-history',l)},
   label(){return this.cloud?'내 계정에 저장돼요':this.connecting?'저장 공간 연결 중':'이 휴대폰에 저장돼요'},
   merge(){const ids=new Set(this.cloudDocs.map(x=>x.id));U=[...this.cloudDocs,...this.pending().filter(x=>!ids.has(x.id))]},
   async init(){
-    if(!window.claude||typeof window.claude.use!=='function')return;
-    this.connecting=true;refresh();
+    if(window.claude&&typeof window.claude.use==='function')return this.initClaude();
+    if(window.supabase||SUPA.url)return this.initSupa();
+  },
+  /* claude.ai 링크: 내 claude.ai 계정의 개인 공간 */
+  async initClaude(){
+    this.kind='claude';this.connecting=true;refresh();
     let db=null,user=null;
     try{[db,user]=await Promise.all([window.claude.use('db'),window.claude.use('user')])}catch(e){}
     let uid=null;if(db&&user){try{uid=await user.id()}catch(e){}}
@@ -1185,27 +1206,108 @@ const Hist={
       this.merge();refresh();
     },()=>{clearTimeout(timer);this.col=null;this.cloud=false;this.connecting=false;this.cloudDocs=[];this.merge();refresh()});
   },
+  /* 깃허브 주소: Supabase 계정 (로그인했을 때만) */
+  async initSupa(){
+    this.kind='supa';
+    try{if(!window.supabase)await loadScript(SUPA.js)}catch(e){this.sbFailed=true;refresh();return}
+    try{this.sb=window.supabase.createClient(SUPA.url,SUPA.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}})}catch(e){this.sbFailed=true;refresh();return}
+    this.sb.auth.onAuthStateChange((ev,session)=>{setTimeout(()=>this.onSession(session),0)});
+    try{const {data}=await this.sb.auth.getSession();this.onSession(data&&data.session)}catch(e){this.onSession(null)}
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&this.user)this.pull()});
+  },
+  async onSession(session){
+    const u=session&&session.user||null;
+    if(this.started&&(u&&u.id)===(this.user&&this.user.id))return;
+    this.started=true;this.user=u;
+    if(!u){this.cloud=false;this.connecting=false;this.cloudDocs=[];this.merge();refresh();return}
+    this.connecting=true;refresh();await this.pull();
+  },
+  rowOf(r){return{user_id:this.user.id,id:r.id,start_at:new Date(r.start).toISOString(),end_at:r.end?new Date(r.end).toISOString():null,part:r.part||null,title:r.title||'',source:r.from||'',exercises:r.ex}},
+  recOf(r){return{id:String(r.id),v:2,start:Date.parse(r.start_at),end:r.end_at?Date.parse(r.end_at):null,part:r.part,title:r.title||'',from:r.source||'',ex:Array.isArray(r.exercises)?r.exercises:[]}},
+  async pull(){
+    if(!this.sb||!this.user)return;
+    const {data,error}=await this.sb.from('workouts').select('id,start_at,end_at,part,title,source,exercises').order('start_at',{ascending:true});
+    this.connecting=false;
+    if(error){this.cloud=false;this.merge();refresh();return}
+    this.cloud=true;this.cloudDocs=(data||[]).map(r=>this.recOf(r)).filter(x=>!isNaN(x.start));
+    await this.upload();this.merge();refresh();
+  },
   async upload(){
     const have=new Set(this.cloudDocs.map(x=>x.id));
+    if(this.kind==='supa'){
+      const todo=this.pending().filter(r=>!have.has(r.id));
+      if(todo.length){const {error}=await this.sb.from('workouts').upsert(todo.map(r=>this.rowOf(r)),{onConflict:'user_id,id'});if(error)return;this.cloudDocs=[...this.cloudDocs,...todo]}
+      this.setPending([]);return;
+    }
     for(const r of this.pending()){
       if(!have.has(r.id)){try{await this.col.doc(r.id).set(r)}catch(e){return}}
       this.setPending(this.pending().filter(x=>x.id!==r.id));
     }
   },
+  online(){return this.kind==='supa'?!!(this.user&&this.cloud):!!this.col},
   async add(rec){
-    if(this.col){
+    if(this.kind==='supa'&&this.user){
+      const {error}=await this.sb.from('workouts').upsert(this.rowOf(rec),{onConflict:'user_id,id'});
+      if(!error){this.cloudDocs=[...this.cloudDocs.filter(x=>x.id!==rec.id),rec];this.merge();refresh();return true}
+    }else if(this.col){
       for(let i=0;i<2;i++){try{await this.col.doc(rec.id).set(rec);return true}catch(e){if(!e||e.code!=='unavailable')break;await new Promise(r=>setTimeout(r,600+Math.random()*900))}}
     }
     this.setPending([...this.pending().filter(x=>x.id!==rec.id),rec]);this.merge();refresh();
-    return !this.col;
+    return !this.online();
   },
   async del(id){
     const wasPending=this.pending().some(x=>x.id===id);
     this.setPending(this.pending().filter(x=>x.id!==id));
-    if(this.col&&!wasPending){try{await this.col.doc(id).delete()}catch(e){this.merge();refresh();return false}}
+    if(!wasPending){
+      if(this.kind==='supa'&&this.user){const {error}=await this.sb.from('workouts').delete().eq('id',id);if(error){this.merge();refresh();return false}}
+      else if(this.col){try{await this.col.doc(id).delete()}catch(e){this.merge();refresh();return false}}
+    }
     this.cloudDocs=this.cloudDocs.filter(x=>x.id!==id);this.merge();refresh();return true;
-  }
+  },
+  async signIn(email,password){const {error}=await this.sb.auth.signInWithPassword({email,password});if(error)throw error;return'in'},
+  async signUp(email,password){const {data,error}=await this.sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}});if(error)throw error;return data&&data.session?'in':'confirm'},
+  async signOut(){try{await this.sb.auth.signOut()}catch(e){}this.onSession(null)}
 };
+function authMsg(e){
+  const c=(e&&(e.code||''))+' '+(e&&e.message||'');
+  if(/invalid_credentials|Invalid login/i.test(c))return'이메일이나 비밀번호가 맞지 않아요.';
+  if(/email_not_confirmed|not confirmed/i.test(c))return'가입 확인 메일의 링크를 먼저 눌러 주세요.';
+  if(/user_already_exists|already registered/i.test(c))return'이미 가입된 이메일이에요. "로그인"을 눌러 주세요.';
+  if(/weak_password|Password should/i.test(c))return'비밀번호를 6자 이상으로 해 주세요.';
+  if(/rate|429/i.test(c))return'너무 자주 시도했어요. 잠시 뒤 다시 해 주세요.';
+  if(/email_address_invalid|invalid.*email/i.test(c))return'이메일 주소를 다시 확인해 주세요.';
+  return'로그인하지 못했어요. 인터넷 연결을 확인하고 다시 해 주세요.';
+}
+function acctCard(){
+  if(Hist.kind!=='supa')return'';
+  if(Hist.sbFailed)return`<div class="card acct"><div><strong>계정 저장 서버에 연결하지 못했어요</strong><span>기록은 이 휴대폰에 저장되고, 다음에 열 때 다시 연결해요.</span></div></div>`;
+  if(Hist.user)return`<div class="card acct"><div><strong>${esc(Hist.user.email||'로그인됨')}</strong><span>${Hist.cloud?'로그인됨 · 기록이 계정에 저장돼요':'계정에 연결하는 중이에요'}</span></div><button class="btn-light sm" data-auth="out">로그아웃</button></div>`;
+  return`<div class="card acct"><div><strong>로그인하면 기록이 계정에 저장돼요</strong><span>휴대폰을 바꾸거나 컴퓨터에서 열어도 그대로 보여요.</span></div><button class="btn-dark sm" data-auth="open">로그인</button></div>`;
+}
+function authSheet(){
+  openSheet('로그인 / 가입',`<form class="auth" id="authForm" novalidate>
+    <label for="authEmail">이메일</label><input class="field" id="authEmail" type="email" autocomplete="email" inputmode="email" required>
+    <label for="authPw">비밀번호 (6자 이상)</label><input class="field" id="authPw" type="password" autocomplete="current-password" minlength="6" required>
+    <p class="msg" id="authMsg" role="status" aria-live="polite"></p>
+    <button class="btn-dark" type="submit" data-authgo="in">로그인</button>
+    <button class="btn-light" type="button" data-authgo="up">처음이에요 · 가입하기</button>
+  </form>
+  <p class="msg">이 휴대폰에 있던 기록은 로그인하면 계정으로 자동으로 옮겨져요. 가입하면 확인 메일이 갈 수 있어요. 메일의 링크를 누른 뒤 여기서 로그인해 주세요.</p>`);
+  setTimeout(()=>{const el=document.getElementById('authEmail');if(el)el.focus()},50);
+}
+async function doAuth(mode){
+  const em=document.getElementById('authEmail'),pw=document.getElementById('authPw'),msg=document.getElementById('authMsg');
+  if(!em||!pw)return;
+  const email=em.value.trim(),password=pw.value;
+  if(!/^\S+@\S+\.\S+$/.test(email)){msg.textContent='이메일 주소를 다시 확인해 주세요.';em.focus();return}
+  if(password.length<6){msg.textContent='비밀번호를 6자 이상으로 해 주세요.';pw.focus();return}
+  const btns=sheetBody.querySelectorAll('[data-authgo]');btns.forEach(b=>b.disabled=true);msg.textContent=mode==='up'?'가입하는 중이에요…':'로그인하는 중이에요…';
+  try{
+    const r=mode==='up'?await Hist.signUp(email,password):await Hist.signIn(email,password);
+    if(r==='confirm'){msg.textContent='확인 메일을 보냈어요. 메일의 링크를 누른 다음, 여기서 "로그인"을 눌러 주세요.';btns.forEach(b=>b.disabled=false);return}
+    closeSheet();toast('로그인했어요 · 기록이 계정에 저장돼요');
+  }catch(e){msg.textContent=authMsg(e);btns.forEach(b=>b.disabled=false)}
+}
 async function saveWorkout(){
   if(!ws)return;
   const rec={id:'w'+ws.start.toString(36),v:2,start:ws.start,end:ws.end||Date.now(),part:ws.part,from:String(ws.src||''),title:String(ws.title||'').slice(0,60),
@@ -1227,6 +1329,7 @@ function render(){
 }
 document.addEventListener('click',e=>{
   const t=e.target;
+  const ab=t.closest('[data-authgo]');if(ab){e.preventDefault();if(!ab.disabled)doAuth(ab.dataset.authgo);return}
   if(t.closest('[data-close]')&&!t.closest('#lb')){closeSheet();return}
   const hit=t.closest('.hit');if(hit){showTip(hit);return}
   const b=t.closest('button');if(!b||b.disabled)return;
@@ -1237,6 +1340,8 @@ document.addEventListener('click',e=>{
   if(d.img){openLb(d.img,b.getAttribute('aria-label'));return}
   if(d.ex){exSheet(d.ex);return}
   if(d.sess){sessSheet(d.sess);return}
+  if(d.auth==='open'){authSheet();return}
+  if(d.auth==='out'){Hist.signOut().then(()=>toast('로그아웃했어요 · 이제 이 휴대폰에 저장돼요'));return}
   if(d.go){if(!armReplace(b))return;startFromSess(byId[d.go]);return}
   if(d.part){ui.part=d.part;ui.sid=null;render();return}
   if(d.lp){ui.lp=d.lp;document.querySelectorAll('#lp button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.lp===ui.lp));fillLibrary();saveUi();return}
@@ -1276,6 +1381,7 @@ woList.addEventListener('change',e=>{const i=e.target.closest('.cell');if(!i||i.
   for(let j=si+1;j<it.sets.length;j++){const s=it.sets[j];if(!s.done&&s[f]===old){s[f]=val;const el=woList.querySelector(`.cell[data-ei="${ei}"][data-si="${j}"][data-f="${f}"]`);if(el)el.value=val}}
   saveWs()});
 view.addEventListener('input',e=>{if(e.target.id==='q')fillLibrary()});
+sheetBody.addEventListener('submit',e=>{if(e.target.id==='authForm'){e.preventDefault();doAuth('in')}});
 document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(!lb.hidden)closeLb();else if(!sheet.hidden)closeSheet();else if(!bdEl.hidden)closeBuild()});
 
 render();
